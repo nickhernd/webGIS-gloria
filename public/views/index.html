@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Guides</title>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+	<link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
+	<script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+	<style>
+		body { margin: 0; padding: 0; }
+		#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+	</style>
+</head>
+<body>
+	<div id="map"></div> 
+	<div id="data_lonja" hidden><%= data %></div>
+	<div id="data_fish_farm" hidden><%= data_fish_farm %></div>
+</body>
+<script>
+	const data = JSON.parse(document.getElementById("data_lonja").textContent);
+	const data_fish_farm= JSON.parse(document.getElementById("data_fish_farm").textContent);
+	console.log(data_fish_farm);
+</script>
+<script>
+	mapboxgl.accessToken = 'pk.eyJ1Ijoic2ViYXMtcCIsImEiOiJjbHMxbzk1ZmYwYjlwMmpwY3hxdDl2amlhIn0.1J2kKRWx_t2PKcuPUGZbFg';
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/dark-v11',
+        projection: 'globe', // Display the map as a globe, since satellite-v9 defaults to Mercator
+        zoom: 8,
+        center: [-0.42935695580101674, 38.34080182349807]
+    });
+
+	map.on("load", () => {
+		map.addSource("lonjas", {
+			type : "geojson",
+			data : data,
+		})
+
+		map.addSource("fish-farm", {
+			type : "geojson",
+			data : data_fish_farm,
+		})
+	
+		map.addLayer(
+			{
+				id: "lonjas-points",
+				type: "circle",
+				source: "lonjas",
+				paint: {
+					"circle-opacity": 1,
+					"circle-color": "#efa536"
+				}
+			})
+
+		map.addLayer(
+			{
+				'id': "fish-farm-polygon",
+				'type': "fill",
+				'source': "fish-farm",
+				'paint': {
+					"fill-opacity" : 0.5,
+					"fill-color" : '#ffe5b4',
+				}
+			})
+
+		map.addLayer(
+			{
+				'id' : "fish-farm-line",
+				'type' : 'line',
+				'source' : 'fish-farm',
+				'layout' : {},
+				'paint' : {
+					'line-color' : '#b7410e',
+					'line-width' : 2,
+					'line-opacity' : 0.75,
+				}
+			}
+		)
+	});
+
+	map.on('click', (event) => {
+		const features = map.queryRenderedFeatures(event.point, {
+			layers: ['lonjas-points']
+		});
+
+		if(!features.length) {
+			return;
+		}
+
+		const feature = features[0];
+
+		const popup = new mapboxgl.Popup({ offset: [0, -15] })
+			.setLngLat(feature.geometry.coordinates)
+			.setHTML(
+				`<h3>${feature.properties.Fish_market}</h3>`
+			)
+			.addTo(map);
+	})
+</script>
+</html>
