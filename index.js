@@ -14,7 +14,9 @@ app.engine('html', require('ejs').renderFile)
 app.set('view engine', 'html')
 
 
-let json_coordinates_path = __dirname + "/data/coord_lonjas.json";
+// let json_coordinates_path = __dirname + "/data/coord_lonjas.json";
+//let json_coordinates_path = __dirname + "/data/nearest_coords_by_coords_search.geojson";
+let json_coordinates_path = __dirname + "/data/data_choropleth.geojson";
 let json_fish_farm_path = __dirname + "/data/recintos_buffer.geojson";
 
 var json_coordinates_data = readFileSync(json_coordinates_path);
@@ -25,6 +27,10 @@ app.get("/", function(req, res) {
 	parsed_fish_farm = JSON.parse(json_fish_farm_data);
 
 	res.render("index.html", {data : JSON.stringify(parsed_coordinates), data_fish_farm : JSON.stringify(parsed_fish_farm)})
+})
+
+app.get("/wave_med", function(req, res) {
+	res.sendFile(path.resolve(__dirname + "/data/wave_med.nc"))
 })
 
 

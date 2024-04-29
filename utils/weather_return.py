@@ -25,6 +25,15 @@ class Weather_Conditions:
     api_token = ""
     api_weather_dict = None
 
+    # TODO Set as empty weather dict
+    # weather_dict = {
+    #     "wind": None,
+    #     "waves": None,
+    #     "humidity": None,
+    #     "temperature": None,
+    # }
+    weather_dict = None
+
     def __init__(self, search_by_coord=True, place=None, coord=None):
         """
         Weather Conditions class constructor
@@ -121,21 +130,37 @@ class Weather_Conditions:
 
         return token
 
-    def get_wind():
-        # TODO
-        return None
+    def get_wind(self):
+        wind = None
+        if self.api_weather_dict is None:
+            log.log_error("API weather dictionary not found")
+        elif "wind" in self.api_weather_dict:
+            wind = self.api_weather_dict["wind"]
+        return wind
 
     def get_waves():
-        # TODO
-        return None
+        waves = None
+        if self.api_weather_dict is None:
+            log.log_error("API weather dictionary not found")
+        elif "waves" in self.api_weather_dict:
+            waves = self.api_weather_dict["waves"]
+        return waves
 
     def get_humidity():
-        # TODO
-        return None
+        humidity = None
+        if self.api_weather_dict is None:
+            log.log_error("API weather dictionary not found")
+        elif "humidity" in self.api_weather_dict:
+            humidity = self.api_weather_dict["waves"]
+        return humidity
 
     def get_temperature():
-        # TODO
-        return None
+        temperature = None
+        if self.api_weather_dict is None:
+            log.log_error("API weather dictionary not found")
+        elif "temperature" in self.api_weather_dict:
+            temperature = self.api_weather_dict["waves"]
+        return temperature
 
     def get_dictionary():
         # TODO

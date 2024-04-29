@@ -18,8 +18,8 @@
 </body>
 <script>
 	const data = JSON.parse(document.getElementById("data_lonja").textContent);
-	const data_fish_farm= JSON.parse(document.getElementById("data_fish_farm").textContent);
-	console.log(data_fish_farm);
+	console.log(data);
+	const data_fish_farm = JSON.parse(document.getElementById("data_fish_farm").textContent);	
 </script>
 <script>
 	mapboxgl.accessToken = 'pk.eyJ1Ijoic2ViYXMtcCIsImEiOiJjbHMxbzk1ZmYwYjlwMmpwY3hxdDl2amlhIn0.1J2kKRWx_t2PKcuPUGZbFg';
@@ -32,7 +32,7 @@
     });
 
 	map.on("load", () => {
-		map.addSource("lonjas", {
+		map.addSource("waves", {
 			type : "geojson",
 			data : data,
 		})
@@ -41,17 +41,6 @@
 			type : "geojson",
 			data : data_fish_farm,
 		})
-	
-		map.addLayer(
-			{
-				id: "lonjas-points",
-				type: "circle",
-				source: "lonjas",
-				paint: {
-					"circle-opacity": 1,
-					"circle-color": "#efa536"
-				}
-			})
 
 		map.addLayer(
 			{
@@ -63,12 +52,23 @@
 					"fill-color" : '#ffe5b4',
 				}
 			})
+	
+		map.addLayer(
+			{
+				'id': "choropleth-polygon",
+				'type': "fill",
+				'source': "waves",
+				'paint': {
+					"fill-opacity" : 0.5,
+					"fill-color" : '#ffe5b4',
+				}
+			})
 
 		map.addLayer(
 			{
-				'id' : "fish-farm-line",
+				'id' : "choropleth-line",
 				'type' : 'line',
-				'source' : 'fish-farm',
+				'source' : 'waves',
 				'layout' : {},
 				'paint' : {
 					'line-color' : '#b7410e',
@@ -81,7 +81,7 @@
 
 	map.on('click', (event) => {
 		const features = map.queryRenderedFeatures(event.point, {
-			layers: ['lonjas-points']
+			layers: ['waves-points']
 		});
 
 		if(!features.length) {
@@ -93,9 +93,9 @@
 		const popup = new mapboxgl.Popup({ offset: [0, -15] })
 			.setLngLat(feature.geometry.coordinates)
 			.setHTML(
-				`<h3>${feature.properties.Fish_market}</h3>`
+				`<h3>${ feature.geometry.coordinates }</h3>`
 			)
 			.addTo(map);
-	})
+	});
 </script>
 </html>
