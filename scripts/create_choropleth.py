@@ -1,9 +1,11 @@
+from config_python import ConfigPath
 from geojson import Feature, FeatureCollection, Polygon
 import json
 
+data_path = ConfigPath.data_path()
 read_data = "nearest_coords_by_coords_search.geojson"
 # Abrimos los datos
-with open(read_data) as f:
+with open(data_path + read_data) as f:
     data = json.load(f)
 
 tam_cuadrado = 0.041666 / 2
@@ -48,5 +50,5 @@ for feature in data["features"]:
 
 # Escribimos en otro archivo
 collection = FeatureCollection(features)
-with open("data_choropleth.geojson", "w") as f:
+with open(data_path + "data_choropleth.geojson", "w") as f:
     f.write(json.dumps(collection))

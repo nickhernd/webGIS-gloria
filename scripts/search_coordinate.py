@@ -1,7 +1,9 @@
 import json
+from config_python import ConfigPath
 
+data_path = ConfigPath.data_path()
 # Leo el archivo de entrada
-with open("data.geojson") as f:
+with open(data_path + "data.geojson") as f:
     data = json.load(f)
 
 search_x = -1.290

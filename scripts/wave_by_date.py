@@ -1,6 +1,9 @@
 import json
+from config_python import ConfigPath
 from datetime import datetime
 from geojson import Feature, FeatureCollection
+
+data_path = ConfigPath.data_path()
 
 
 def compare_year_month_day(datetime1, datetime2):
@@ -12,7 +15,7 @@ def compare_year_month_day(datetime1, datetime2):
 
 
 # Leemos de la base de datos
-with open("data.geojson") as f:
+with open(data_path + "data.geojson") as f:
     data = json.load(f)
 
 date_str = "2024-04-23"
@@ -46,5 +49,5 @@ for feature in data["features"]:
 
 # Escribimos en un nuevo archivo
 feature_collection = FeatureCollection(features_search)
-with open("data_search.geojson", "w") as f:
+with open(data_path + "data_search.geojson", "w") as f:
     json.dump(feature_collection, f)
