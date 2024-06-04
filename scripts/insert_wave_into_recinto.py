@@ -9,7 +9,7 @@ from config_python import ConfigPath
 from geojson import FeatureCollection
 
 data_path = ConfigPath.data_path()
-file_recinto = "recintos_buffer.geojson"
+file_recinto = "recintos_buffer_center.geojson"
 file_nearest_point = "nearest_coords_by_coords_search.geojson"
 file_output = "recintos_with_data.geojson"
 
@@ -47,9 +47,12 @@ data_nearest_point["features"] = sorted(
 )
 
 for i in range(0, len(data_recinto["features"])):
-    data_recinto["features"][i]["properties"] = data_nearest_point[
-        "features"
-    ][i]["properties"]
+    data_recinto["features"][i]["properties"][
+        "time"
+    ] = data_nearest_point["features"][i]["properties"]["time"]
+    data_recinto["features"][i]["properties"][
+        "wave_height"
+    ] = data_nearest_point["features"][i]["properties"]["wave_height"]
 
 fc = FeatureCollection(data_recinto["features"])
 with open(data_path + file_output, "w") as f:

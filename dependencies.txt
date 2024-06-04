@@ -1,0 +1,6 @@
+tqdm
+geojson
+xarray
+copernicusmarine
+aiohttp
+h5netcdf

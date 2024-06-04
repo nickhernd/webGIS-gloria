@@ -54,10 +54,14 @@ log_info "Separamos los datos por fecha"
 python separate_by_date.py
 log_info "Separado correctamente por fecha"
 
+# Calculamos el centro de la piscifactoría
+log_info "Calculamos el centro de la piscifactoría"
+python calculate_center.py
+log_info "Centro calculado correctamente"
+
 # Guardamos la fecha actual en las piscifactorías
 log_info "Guardamos la fecha actual en las piscifactorías"
 python search_wave_by_coord_recinto.py date $current_date
 python insert_wave_into_recinto.py
 log_info "Fecha guardada correctamente"
-
 
