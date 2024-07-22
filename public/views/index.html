@@ -14,6 +14,26 @@
 		href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
 	/>
 	<link rel="stylesheet" href="css/index.css">
+	<style>
+        .collapse-date-time {
+            position: absolute;
+            z-index: 3;
+            margin-top: 7px;
+            left: 82%;
+            width: 300px;
+        }
+		.input-group .form-control {
+            width: 100%;
+        }
+		
+		.real-time-input {
+            position: fixed;
+			width: 300px;
+            left: 84%;
+			bottom: 4%;
+            z-index: 4;
+        }
+	</style>
 </head>
 <body>
 	<!-------------------------- HEADER ---------------------------------->
@@ -93,15 +113,27 @@
 			<i class="fa fa-search"></i>
 		</button>
 		<!-- Campo de entrada de fecha colapsable -->
-		<div class="collapse" id="fechaCollapse" style="position: absolute; z-index: 3; margin-top: 7px; left:82%">
+		<div class="collapse collapse-date-time" id="fechaCollapse" style="position: absolute; z-index: 3; margin-top: 7px; left:81%">
             <!-- Creamos un form con un input de tipo fecha y un calendario-->
-			<form action="http://localhost:8080/" method="POST">
-				<input type="date" name="fecha" id="fecha" class="form-control">
-				<input type="time" name="hora" id="hora" class="form-control">
-				<button type="submit" class="btn btn-primary">Buscar</button>
-			</form>
+            <form action="http://localhost:8080/" method="POST" class="p-3 bg-light text-black rounded">
+                <div class="input-group mb-3">
+                    <span class="input-group-text" id="basic-addon1"><i class="fa fa-calendar"></i></span>
+                    <input type="date" name="fecha" id="fecha" class="form-control" placeholder="Select Date" aria-label="Fecha" aria-describedby="basic-addon1">
+                </div>
+                <div class="input-group mb-3">
+                    <span class="input-group-text" id="basic-addon2"><i class="fa fa-clock-o"></i></span>
+                    <input type="time" name="hora" id="hora" class="form-control" placeholder="Select Time" aria-label="Hora" aria-describedby="basic-addon2">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Buscar</button>
+            </form>
+        </div>
+		<div class="real-time-input bg-light text-dark p-3 rounded">
+			<div id="fechaDisplay"></div>
+            <div id="horaDisplay"></div>
         </div>
 		<div>
+				<!--------- PANEL LATERAL --------------- -->
+
 			<button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample" style="posItion:fixed; top:50%; left: 20px;z-index: 4;">
 				<i class="fa fa-bars"></i>
 			</button>
@@ -129,13 +161,16 @@
 		  </div>
 	  </div>
 	</div>
-	<!--------- PANEL LATERAL --------------- -->
 
 	<div id="map" style="box-sizing: content-box; margin-top: 72px; z-index: 1"></div> 
 	<div id="data_lonja" hidden><%= data %></div>
 	<div id="data_fish_farm" hidden><%= data_fish_farm %></div>
 	<div id="hora_data" hidden><%= hora  %></div>
 	<div id="fecha_data" hidden><%= fecha %></div>
+	<script>
+		document.getElementById("fechaDisplay").innerText = 'Fecha: ' + document.getElementById("fecha_data").textContent;
+		document.getElementById("horaDisplay").innerText = 'Hora seleccionada: ' + document.getElementById("hora_data").textContent;
+	</script>
 	<script>
 		const data = JSON.parse(document.getElementById("data_lonja").textContent);
 		const data_fish_farm = JSON.parse(document.getElementById("data_fish_farm").textContent);	
@@ -215,7 +250,8 @@
 
 			const feature = features[0];
 
-			document.getElementById("lonja-id").innerHTML = `<b>Lonja: </b>${ feature.properties.lonja }`
+			//document.getElementById("lonja-id").innerHTML = `<b>Lonja: </b>${ feature.properties.lonja }`
+			document.getElementById("lonja-id").innerHTML = `<b>Lonja: </b>Campello`
 			document.getElementById("oleaje-id").innerHTML = `<b>Altitud oleaje(m): </b>${ feature.properties.wave_hour }`
 			document.getElementById("temperatura-id").innerHTML = `<b>Temperatura: </b>${ feature.properties.temp }ºC`
 			document.getElementById("sensterm-id").innerHTML = `<b>Sensación térmica: </b>${ feature.properties.feels_like }ºC`
