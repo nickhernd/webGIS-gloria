@@ -13,7 +13,8 @@ function get_wave_by_hour_str(feature, hour) {
 		return date.trim().slice(1, date.length-1);
 	});
 	// Quitamos los valores de la fecha
-	dates = dates.map(function(date) {
+
+    dates = dates.map(function(date) {
 		return date.split(" ")[1];
 	});
 	var hours = dates.map(function(hour) {
