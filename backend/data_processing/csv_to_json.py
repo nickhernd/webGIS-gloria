@@ -1,104 +1,124 @@
-import csv
-from geojson import Feature, FeatureCollection, Point
-from config_python import ConfigPath
-from tqdm import tqdm
+"""
+Módulo de Conversión de CSV a GeoJSON
 
-# from threading import Thread, Lock
+Convierte datos procesados de CSV a formato GeoJSON para visualización en mapas.
+Incluye funcionalidades para procesamiento temporal y espacial de datos.
 
-data_path = ConfigPath.data_path()
-path_to_csv = data_path + "copernicus_data.csv"
-path_to_geojson = data_path + "copernicus_data.geojson"
+Actualizado: 2024
+"""
 
-list_of_values = []
+import json
+from pathlib import Path
+from typing import Dict, List, Optional
+import logging
+from datetime import datetime
 
-# CSV format is assumed to be: time,latitude,longitude,wave_height
-# Guardamos los valores del csv en una lista de diccionarios
-with open(path_to_csv, newline="") as csvfile:
-    reader = csv.reader(csvfile, delimiter=",")
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
 
-    first = True
-    for time, lat, lon, wave_height in reader:
-        if first:
-            first = False
-            continue
-        else:
-            list_of_values.append(
-                {
-                    "coord": (float(lat), float(lon)),
-                    "time": time,
-                    "wave_height": wave_height,
-                }
-            )
-
-# Sort the list of values by latitude and longitude
-sorted_list = sorted(
-    list_of_values, key=lambda x: (x["coord"][0], x["coord"][1])
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/geojson_conversion.log'),
+        logging.StreamHandler()
+    ]
 )
+logger = logging.getLogger(__name__)
 
-coords = sorted(
-    list(set([item["coord"] for item in list_of_values])),
-    key=lambda x: (x[0], x[1]),
-)
+class GeoJSONConverter:
+    def __init__(self, input_dir: str = 'data/temp', output_dir: str = 'data/processed'):
+        self.input_dir = Path(input_dir)
+        self.output_dir = Path(output_dir)
+        self._create_directories()
 
+    def _create_directories(self) -> None:
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
-def obtain_time_and_wave_height(sorted_list, lat, lon):
-    values_by_coord = list(
-        filter(lambda x: x["coord"] == (lat, lon), sorted_list)
+    def _read_csv(self, file_path: Path) -> Optional[pd.DataFrame]:
+        try:
+            return pd.read_csv(file_path, parse_dates=['time'])
+        except Exception as e:
+            logger.error(f"Error al leer CSV {file_path}: {str(e)}")
+            return None
+
+    def _create_geojson_feature(self, row: pd.Series) -> Dict:
+        return {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [float(row['longitude']), float(row['latitude'])]
+            },
+            "properties": {
+                "time": row['time'].isoformat(),
+                **{col: float(val) for col, val in row.items() 
+                   if col not in ['longitude', 'latitude', 'time']}
+            }
+        }
+
+    def convert_to_geojson(self, input_file: str, output_file: str) -> bool:
+        try:
+            df = self._read_csv(self.input_dir / input_file)
+            if df is None:
+                return False
+
+            features = [self._create_geojson_feature(row) for _, row in df.iterrows()]
+            geojson = {
+                "type": "FeatureCollection",
+                "features": features
+            }
+
+            output_path = self.output_dir / output_file
+            with open(output_path, 'w') as f:
+                json.dump(geojson, f)
+
+            logger.info(f"Archivo GeoJSON creado exitosamente: {output_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error en la conversión a GeoJSON: {str(e)}")
+            return False
+
+    def convert_with_time_filter(self, input_file: str, output_file: str, 
+                               start_date: datetime, end_date: datetime) -> bool:
+        try:
+            df = self._read_csv(self.input_dir / input_file)
+            if df is None:
+                return False
+
+            mask = (df['time'] >= start_date) & (df['time'] <= end_date)
+            df_filtered = df.loc[mask]
+
+            features = [self._create_geojson_feature(row) for _, row in df_filtered.iterrows()]
+            geojson = {
+                "type": "FeatureCollection",
+                "features": features
+            }
+
+            output_path = self.output_dir / output_file
+            with open(output_path, 'w') as f:
+                json.dump(geojson, f)
+
+            logger.info(f"Archivo GeoJSON filtrado creado: {output_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error en la conversión con filtro temporal: {str(e)}")
+            return False
+
+def main():
+    converter = GeoJSONConverter()
+    
+    converter.convert_to_geojson(
+        'wave_data.csv', 
+        'wave_data.geojson'
+    )
+    
+    converter.convert_to_geojson(
+        'bio_data.csv', 
+        'bio_data.geojson'
     )
 
-    time_list = []
-    wave_height_list = []
-
-    es_tierra = False
-    for value in values_by_coord:
-        time_list.append(value["time"])
-        wave_height_list.append(value["wave_height"])
-        if value["wave_height"] == "":
-            es_tierra = True
-            break
-
-    first_index = sorted_list.index(values_by_coord[0])
-    last_index = sorted_list.index(values_by_coord[-1])
-
-    return {
-        "time": time_list if not es_tierra else None,
-        "wave_height": wave_height_list if not es_tierra else None,
-        "first_index": first_index,
-        "last_index": last_index,
-    }
-
-
-features = []
-used_coords = []
-for coord, i in zip(coords, tqdm(range(len(coords)))):
-    lat, lon = coord
-    if coord in used_coords:
-        continue
-    else:
-        time_and_wave_height = obtain_time_and_wave_height(
-            sorted_list,
-            lat,
-            lon,
-        )
-
-        del sorted_list[
-            time_and_wave_height["first_index"] : time_and_wave_height[
-                "last_index"
-            ]
-            + 1
-        ]
-
-        if time_and_wave_height["wave_height"] is not None:
-            f = Feature(
-                geometry=Point((lon, lat)),
-                properties={
-                    "time": time_and_wave_height["time"],
-                    "wave_height": time_and_wave_height["wave_height"],
-                },
-            )
-            features.append(f)
-        used_coords.append(coord)
-
-collection = FeatureCollection(features)
-with open(path_to_geojson, "w") as f:
-    f.write("%s" % collection)
+if __name__ == "__main__":
+    main()

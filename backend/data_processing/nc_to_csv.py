@@ -176,10 +176,10 @@ def main():
     converter = NetCDFConverter()
     
     # Convertir datos de oleaje
-    converter.convert_file('wave_data.nc', 'wave')
+    converter.convert_file('wave_med.nc', 'wave')
     
     # Convertir datos bioquímicos
-    converter.convert_file('bio_data.nc', 'bio')
+    converter.convert_file('copernicus_data.nc', 'bio')
 
 if __name__ == "__main__":
     main()

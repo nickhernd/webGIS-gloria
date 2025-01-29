@@ -1,71 +1,146 @@
-import json
-import sys
-from config_python import ConfigPath
-from geojson import Feature, FeatureCollection
+"""
+Módulo de Búsqueda de Datos por Coordenadas
 
-coords_str = []
+Encuentra y procesa datos de oleaje cerca de recintos específicos.
+Utiliza algoritmos de proximidad espacial para asociar datos.
 
-data_path = ConfigPath.data_path()
+Autor: Sebastian Pasker
+Actualizado: 2024
+"""
 
-if len(sys.argv) == 2:
-    data_file = sys.argv[1]
-elif len(sys.argv) >= 3 and sys.argv[1] == "date":
-    data_file = "data_by_date/data-" + sys.argv[2] + ".geojson"
-else:
-    data_file = "copernicus_data.geojson"
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+from shapely.geometry import Point
+from typing import List, Dict, Optional
+import logging
+from pathlib import Path
 
-# Sacar coordenada por linea de archivo
-with open(data_path + "points_by_recinto.txt", "r") as file:
-    for line in file:
-        if line.strip() != "":
-            coords_str.append(line[:-2])
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.FileHandler('logs/spatial_search.log')]
+)
+logger = logging.getLogger(__name__)
 
-# Pasar a tupla de coordenadas
-coords_search = []
-for coord_s in coords_str:
-    coords_search.append(list(map(float, coord_s.split(","))))
+class WaveDataSearcher:
+    def __init__(self, data_dir: str = 'data/processed'):
+        self.data_dir = Path(data_dir)
+        self.earth_radius = 6371  # km
 
-# Leemos en base a todos los puntos
-with open(data_path + data_file, "r") as file:
-    data = json.load(file)
+    def _load_geojson(self, filename: str) -> Optional[gpd.GeoDataFrame]:
+        try:
+            filepath = self.data_dir / filename
+            return gpd.read_file(filepath)
+        except Exception as e:
+            logger.error(f"Error cargando GeoJSON {filename}: {str(e)}")
+            return None
 
-# Guardamos solo las coordenadas.
-data_coords = [
-    data["features"][i]["geometry"]["coordinates"]
-    for i in range(len(data["features"]))
-]
+    def _calculate_distances(self, point: Point, points_df: gpd.GeoDataFrame) -> np.ndarray:
+        """Calcula distancias entre un punto y conjunto de puntos."""
+        return points_df.geometry.distance(point) * self.earth_radius
 
-features = []
-# Buscamos las coordenadas mas cercanas al punto de las lonjas
-for coord in coords_search:
-    nearest_coord = [None, None]
-    # Buscamos el punto mas cercano
-    for data_coord in data_coords:
-        if nearest_coord[0] is None:
-            nearest_coord = data_coord
-        else:
-            if abs(data_coord[0] - coord[0]) + abs(
-                data_coord[1] - coord[1]
-            ) < abs(nearest_coord[0] - coord[0]) + abs(
-                nearest_coord[1] - coord[1]
-            ):
-                nearest_coord = data_coord
-    # Guardamos el indice
-    index = data_coords.index(nearest_coord)
+    def find_nearest_waves(self, recintos_file: str, waves_file: str, 
+                         max_distance: float = 5.0) -> Optional[gpd.GeoDataFrame]:
+        """
+        Encuentra datos de oleaje más cercanos a recintos.
+        
+        Args:
+            recintos_file: Archivo GeoJSON de recintos
+            waves_file: Archivo GeoJSON de datos de oleaje
+            max_distance: Distancia máxima en km
+        """
+        try:
+            recintos_gdf = self._load_geojson(recintos_file)
+            waves_gdf = self._load_geojson(waves_file)
+            
+            if recintos_gdf is None or waves_gdf is None:
+                return None
 
-    # Guardamos en una lista de features
-    features.append(
-        Feature(
-            geometry={"type": "Point", "coordinates": nearest_coord},
-            properties=data["features"][index]["properties"],
-        )
+            results = []
+            for idx, recinto in recintos_gdf.iterrows():
+                distances = self._calculate_distances(recinto.geometry, waves_gdf)
+                nearest_idx = distances.argmin()
+                
+                if distances[nearest_idx] <= max_distance:
+                    wave_data = waves_gdf.iloc[nearest_idx].copy()
+                    wave_data['recinto_id'] = recinto['id']
+                    wave_data['distance'] = distances[nearest_idx]
+                    results.append(wave_data)
+
+            if results:
+                return gpd.GeoDataFrame(results)
+            return None
+
+        except Exception as e:
+            logger.error(f"Error en búsqueda de oleaje: {str(e)}")
+            return None
+
+    def save_results(self, gdf: gpd.GeoDataFrame, output_file: str) -> bool:
+        """
+        Guarda resultados en formato GeoJSON.
+        
+        Args:
+            gdf: GeoDataFrame con resultados
+            output_file: Nombre del archivo de salida
+        """
+        try:
+            output_path = self.data_dir / output_file
+            gdf.to_file(output_path, driver='GeoJSON')
+            logger.info(f"Resultados guardados en {output_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error guardando resultados: {str(e)}")
+            return False
+
+def main():
+    searcher = WaveDataSearcher()
+    results = searcher.find_nearest_waves(
+        'recintos.geojson',
+        'wave_data.geojson'
     )
+    
+    if results is not None:
+        searcher.save_results(results, 'wave_by_recinto.geojson')
+
+if __name__ == "__main__":
+    main()
 
 
-# Guardamos en un feature collection
-fc = FeatureCollection(features)
 
-with open(
-    data_path + "nearest_coords_by_coords_search.geojson", "w"
-) as file:
-    json.dump(fc, file)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

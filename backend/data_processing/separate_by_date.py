@@ -1,67 +1,71 @@
+"""
+Módulo de Separación de Datos por Fecha
+
+Separa y organiza datos GeoJSON por fechas específicas.
+Autor: Jaime Hernández
+"""
+
 import json
-from config_python import ConfigPath
 from datetime import datetime
-from geojson import Feature, Point, FeatureCollection
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional
 
-data_path = ConfigPath.data_path()
-file_in = data_path + "copernicus_data.geojson"
+import pandas as pd
+import geopandas as gpd
 
-with open(file_in, "r") as f:
-    data = json.load(f)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.FileHandler('logs/date_processing.log')]
+)
+logger = logging.getLogger(__name__)
 
-date_dict = {}
-# Obtenemos el rango de fechas
-date_list = data["features"][0]["properties"]["time"]
-index = 0
-last_date = None
-for str_date in date_list:
-    date = datetime.strptime(str_date, "%Y-%m-%d %H:%M:%S")
-    if date.strftime("%Y-%m-%d") not in date_dict:
-        date_dict[date.strftime("%Y-%m-%d")] = None
+class DateSeparator:
+    def __init__(self, data_dir: str = 'data/processed'):
+        self.data_dir = Path(data_dir)
+        self.output_dir = self.data_dir / 'by_date'
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Primer caso
-    if last_date is None:
-        last_date = date
-        date_dict[date.strftime("%Y-%m-%d")] = {"range": [index, None]}
+    def separate_geojson(self, input_file: str) -> bool:
+        try:
+            with open(self.data_dir / input_file) as f:
+                data = json.load(f)
 
-    # Caso que la fecha sea diferente
-    if date.strftime("%Y-%m-%d") != last_date.strftime("%Y-%m-%d"):
-        date_dict[last_date.strftime("%Y-%m-%d")]["range"][1] = (
-            index - 1
-        )
-        date_dict[date.strftime("%Y-%m-%d")] = {"range": [index, None]}
-        last_date = date
+            grouped_features = self._group_by_date(data['features'])
+            return self._save_separate_files(grouped_features)
+        except Exception as e:
+            logger.error(f"Error en separación: {str(e)}")
+            return False
 
-    index += 1
+    def _group_by_date(self, features: List[Dict]) -> Dict[str, List[Dict]]:
+        grouped = {}
+        for feature in features:
+            date = feature['properties']['time'].split('T')[0]
+            if date not in grouped:
+                grouped[date] = []
+            grouped[date].append(feature)
+        return grouped
 
-# Ultimo caso
-date_dict[last_date.strftime("%Y-%m-%d")]["range"][1] = index - 1
+    def _save_separate_files(self, grouped_features: Dict[str, List[Dict]]) -> bool:
+        try:
+            for date, features in grouped_features.items():
+                output_file = self.output_dir / f'data-{date}.geojson'
+                geojson = {
+                    "type": "FeatureCollection",
+                    "features": features
+                }
+                with open(output_file, 'w') as f:
+                    json.dump(geojson, f)
+                logger.info(f"Creado archivo para fecha {date}")
+            return True
+        except Exception as e:
+            logger.error(f"Error guardando archivos: {str(e)}")
+            return False
 
-for key in date_dict:
-    date_dict[key]["features"] = []
-    for coord in data["features"]:
-        date_dict[key]["features"].append(
-            Feature(
-                geometry=Point(coord["geometry"]["coordinates"]),
-                properties={
-                    "time": coord["properties"]["time"][
-                        date_dict[key]["range"][0] : date_dict[key][
-                            "range"
-                        ][1]
-                        + 1
-                    ],
-                    "wave_height": coord["properties"]["wave_height"][
-                        date_dict[key]["range"][0] : date_dict[key][
-                            "range"
-                        ][1]
-                        + 1
-                    ],
-                },
-            )
-        )
+def main():
+    separator = DateSeparator()
+    separator.separate_geojson('processed_data.geojson')
 
-for key in date_dict:
-    with open(
-        data_path + "/data_by_date/data-" + key + ".geojson", "w"
-    ) as f:
-        json.dump(FeatureCollection(date_dict[key]["features"]), f)
+if __name__ == "__main__":
+    main()
