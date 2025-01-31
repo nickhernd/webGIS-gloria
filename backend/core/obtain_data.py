@@ -135,56 +135,85 @@ class CopernicusDataRetriever:
            return None
    
    def save_dataset(
-       self,
-       dataset: xr.Dataset,
-       output_path: str,
-       dataset_type: str
-   ) -> bool:
-       """
-       Guarda un dataset en archivo NetCDF.
-       
-       Args:
-           dataset: Dataset de xarray para guardar
-           output_path: Ruta donde guardar el archivo
-           dataset_type: Tipo de dataset ('wave' o 'bio')
-       
-       Returns:
-           bool indicando éxito o fracaso
-       """
-       try:
-           Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-           dataset.to_netcdf(output_path)
-           logger.info(f"Dataset guardado con éxito en {output_path}")
-           return True
-       except Exception as e:
-           logger.error(f"Error al guardar dataset: {str(e)}")
-           return False
+    self,
+    dataset: xr.Dataset,
+    output_path: str,
+    dataset_type: str
+) -> bool:
+    """
+    Guarda un dataset en archivo NetCDF.
+    
+    Args:
+        dataset: Dataset de xarray para guardar
+        output_path: Ruta donde guardar el archivo
+        dataset_type: Tipo de dataset ('wave' o 'bio')
+    
+    Returns:
+        bool indicando éxito o fracaso
+    """
+    try:
+        # Convertir a ruta absoluta
+        root_dir = Path(__file__).parent.parent.parent
+        full_path = root_dir / output_path
+        
+        # Crear directorio si no existe
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Guardar dataset
+        dataset.to_netcdf(str(full_path))
+        logger.info(f"Dataset guardado con éxito en {full_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error al guardar dataset: {str(e)}")
+        return False
 
 def main():
-   """Función principal de ejecución."""
-   # Ejemplo de uso
-   retriever = CopernicusDataRetriever()
-   
-   # Definir rango de tiempo y región
-   end_date = datetime.now()
-   start_date = end_date - timedelta(days=7)
-   
-   region = {
-       'minlon': -5.5,
-       'maxlon': 36.0,
-       'minlat': 30.0,
-       'maxlat': 46.0
-   }
-   
-   # Obtener y guardar datos de oleaje
-   wave_data = retriever.get_wave_data(start_date, end_date, region)
-   if wave_data is not None:
-       retriever.save_dataset(wave_data, 'data/raw/copernicus/wave_data.nc', 'wave')
-   
-   # Obtener y guardar datos bioquímicos
-   bio_data = retriever.get_biogeochemistry_data(start_date, end_date, region)
-   if bio_data is not None:
-       retriever.save_dataset(bio_data, 'data/raw/copernicus/bio_data.nc', 'bio')
+    """Función principal de ejecución."""
+    try:
+        retriever = CopernicusDataRetriever()
+        
+        # Definir rango de tiempo y región
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=7)
+        
+        region = {
+            'minlon': -5.5,
+            'maxlon': 36.0,
+            'minlat': 30.0,
+            'maxlat': 46.0
+        }
+        
+        # Verificar y crear directorios necesarios
+        root_dir = Path(__file__).parent.parent.parent
+        data_dir = root_dir / 'data'
+        copernicus_dir = data_dir / 'raw' / 'copernicus'
+        copernicus_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Obtener y guardar datos de oleaje
+        logger.info("Iniciando obtención de datos de oleaje...")
+        wave_data = retriever.get_wave_data(start_date, end_date, region)
+        if wave_data is not None:
+            wave_path = 'data/raw/copernicus/wave_data.nc'
+            if retriever.save_dataset(wave_data, wave_path, 'wave'):
+                logger.info("Datos de oleaje guardados correctamente")
+            else:
+                logger.error("Error al guardar datos de oleaje")
+        
+        # Obtener y guardar datos bioquímicos
+        logger.info("Iniciando obtención de datos bioquímicos...")
+        bio_data = retriever.get_biogeochemistry_data(start_date, end_date, region)
+        if bio_data is not None:
+            bio_path = 'data/raw/copernicus/bio_data.nc'
+            if retriever.save_dataset(bio_data, bio_path, 'bio'):
+                logger.info("Datos bioquímicos guardados correctamente")
+            else:
+                logger.error("Error al guardar datos bioquímicos")
 
+    except Exception as e:
+        logger.error(f"Error en la ejecución principal: {str(e)}")
+        return False
+    
+    return True
+            
 if __name__ == "__main__":
    main()

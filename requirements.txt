@@ -30,5 +30,10 @@ flake8
 mypy
 
 # Utilidades
+python-multipart
 python-dotenv
 tqdm
+fastapi
+uvicorn
+httpx
+pytest

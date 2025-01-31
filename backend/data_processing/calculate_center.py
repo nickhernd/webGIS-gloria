@@ -1,84 +1,124 @@
-"""
-Módulo de Cálculo de Centros Geográficos
-
-Calcula los centroides de recintos y areas geográficas.
-Procesa geometrías para análisis espacial.
-
-Autor: Sebastian Pasker
-Actualizado: 2024
-"""
-
+from typing import Dict, List, Any
+import json
+import numpy as np
+from shapely.geometry import shape, Point
+from shapely.ops import unary_union
 import geopandas as gpd
-from shapely.geometry import Point, Polygon
-import logging
-from pathlib import Path
-from typing import Optional, Dict, List
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.FileHandler('logs/geometric_processing.log')]
-)
-logger = logging.getLogger(__name__)
-
-class GeometryProcessor:
-    def __init__(self, data_dir: str = 'data/processed'):
-        self.data_dir = Path(data_dir)
-
-    def calculate_centroid(self, geojson_file: str) -> Optional[gpd.GeoDataFrame]:
-        """
-        Calcula centroides para cada geometría en el GeoJSON.
-        
-        Args:
-            geojson_file: Archivo GeoJSON de entrada
-        """
-        try:
-            gdf = gpd.read_file(self.data_dir / geojson_file)
-            gdf['geometry'] = gdf.geometry.centroid
-            return gdf
-        except Exception as e:
-            logger.error(f"Error calculando centroides: {str(e)}")
-            return None
-
-    def save_processed_data(self, gdf: gpd.GeoDataFrame, output_file: str) -> bool:
-        """
-        Guarda GeoDataFrame procesado.
-        
-        Args:
-            gdf: GeoDataFrame con centroides
-            output_file: Archivo de salida
-        """
-        try:
-            output_path = self.data_dir / output_file
-            gdf.to_file(output_path, driver='GeoJSON')
-            logger.info(f"Centroides guardados en {output_path}")
-            return True
-        except Exception as e:
-            logger.error(f"Error guardando centroides: {str(e)}")
-            return False
-
-    def add_buffer(self, gdf: gpd.GeoDataFrame, buffer_distance: float) -> gpd.GeoDataFrame:
-        """
-        Añade buffer alrededor de los centroides.
-        
-        Args:
-            gdf: GeoDataFrame con centroides
-            buffer_distance: Distancia del buffer en grados
-        """
-        try:
-            gdf['geometry'] = gdf.geometry.buffer(buffer_distance)
-            return gdf
-        except Exception as e:
-            logger.error(f"Error añadiendo buffer: {str(e)}")
-            return gdf
-
-def main():
-    processor = GeometryProcessor()
+def calculate_centers(geojson_data: Dict[str, Any]) -> List[Dict[str, float]]:
+    """
+    Calcula los centros de las piscifactorías desde datos GeoJSON.
     
-    gdf = processor.calculate_centroid('recintos.geojson')
-    if gdf is not None:
-        gdf = processor.add_buffer(gdf, 0.01)
-        processor.save_processed_data(gdf, 'recintos_center.geojson')
+    Args:
+        geojson_data: Diccionario con datos GeoJSON de las piscifactorías
+        
+    Returns:
+        Lista de diccionarios con las coordenadas de los centros
+    """
+    centers = []
+    
+    for feature in geojson_data['features']:
+        # Crear geometría Shapely desde el feature
+        geom = shape(feature['geometry'])
+        
+        # Calcular centroide
+        center = geom.centroid
+        
+        # Añadir a la lista de centros
+        centers.append({
+            'id': feature['properties'].get('id', ''),
+            'name': feature['properties'].get('name', ''),
+            'lat': center.y,
+            'lon': center.x
+        })
+    
+    return centers
+
+def process_geographic_data(input_path: str, output_path: str) -> bool:
+    """
+    Procesa datos geográficos y calcula centros.
+    
+    Args:
+        input_path: Ruta al archivo GeoJSON de entrada
+        output_path: Ruta donde guardar el resultado
+        
+    Returns:
+        bool: True si el proceso fue exitoso
+    """
+    try:
+        # Leer GeoJSON
+        with open(input_path) as f:
+            data = json.load(f)
+        
+        # Calcular centros
+        centers = calculate_centers(data)
+        
+        # Añadir centros al GeoJSON original
+        for feature, center in zip(data['features'], centers):
+            feature['properties']['center'] = {
+                'lat': center['lat'],
+                'lon': center['lon']
+            }
+        
+        # Guardar resultado
+        with open(output_path, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error procesando datos geográficos: {str(e)}")
+        return False
+
+def calculate_buffer(geojson_data: Dict[str, Any], buffer_distance: float) -> Dict[str, Any]:
+    """
+    Calcula buffer alrededor de las piscifactorías.
+    
+    Args:
+        geojson_data: Diccionario con datos GeoJSON
+        buffer_distance: Distancia del buffer en metros
+        
+    Returns:
+        Diccionario GeoJSON con los buffers calculados
+    """
+    try:
+        # Convertir a GeoDataFrame
+        gdf = gpd.GeoDataFrame.from_features(geojson_data['features'])
+        
+        # Asegurar CRS correcto
+        if gdf.crs is None:
+            gdf.set_crs(epsg=4326, inplace=True)
+        
+        # Convertir a proyección métrica para el buffer
+        gdf_projected = gdf.to_crs(epsg=3857)
+        
+        # Calcular buffer
+        gdf_buffer = gdf_projected.buffer(buffer_distance)
+        
+        # Volver a WGS84
+        gdf_buffer = gdf_buffer.to_crs(epsg=4326)
+        
+        # Crear nuevo GeoJSON
+        buffer_features = []
+        for idx, geom in enumerate(gdf_buffer):
+            feature = {
+                'type': 'Feature',
+                'geometry': json.loads(gpd.GeoSeries([geom]).to_json())['features'][0]['geometry'],
+                'properties': gdf.iloc[idx].to_dict()
+            }
+            buffer_features.append(feature)
+        
+        return {
+            'type': 'FeatureCollection',
+            'features': buffer_features
+        }
+        
+    except Exception as e:
+        print(f"Error calculando buffer: {str(e)}")
+        return None
 
 if __name__ == "__main__":
-    main()
+    # Ejemplo de uso
+    import sys
+    if len(sys.argv) > 2:
+        process_geographic_data(sys.argv[1], sys.argv[2])

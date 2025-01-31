@@ -5,7 +5,7 @@ Organiza datos CSV por coordenadas geográficas y realiza análisis espacial.
 Permite agrupar y filtrar datos por proximidad a puntos de interés.
 
 Autor: Jaime Hernández
-Actualizado: 2024
+Actualizado: 2025
 """
 
 import pandas as pd
@@ -90,7 +90,6 @@ class SpatialDataProcessor:
                 nearest_df.to_csv(output_path, index=False)
                 logger.info(f"Datos procesados guardados en {output_path}")
                 return True
-            
             return False
 
         except Exception as e:
